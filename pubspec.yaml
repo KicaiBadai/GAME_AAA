@@ -1,5 +1,11 @@
 name: flutter_application_1
 description: "A new Flutter project."
+dependencies:
+flame: ^1.16.0          # Game engine
+flame_audio: ^2.1.6     # Audio player untuk Flame
+flutter:
+assets:- assets/audio/music/  # Folder background 
+music- assets/audio/sfx/    # Folder sound eff
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
