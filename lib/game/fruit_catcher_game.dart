@@ -1,5 +1,4 @@
 import 'dart:math';
-import 'package:flame/camera.dart';
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
@@ -11,7 +10,7 @@ import 'floating_text.dart';
 
 class FruitCatcherGame extends FlameGame
     with PanDetector, HasCollisionDetection {
-  FruitCatcherGame(); // Constructor simple
+  FruitCatcherGame();
 
   late Basket basket;
   late TextComponent scoreText;
@@ -19,7 +18,6 @@ class FruitCatcherGame extends FlameGame
   double fruitSpawnTimer = 0;
   double fruitSpawnInterval = 1.5;
 
-  // Notifiers untuk komunikasi dengan UI
   final ValueNotifier<int> scoreNotifier = ValueNotifier<int>(0);
   final ValueNotifier<bool> gameOverNotifier = ValueNotifier<bool>(false);
 
@@ -30,24 +28,19 @@ class FruitCatcherGame extends FlameGame
     scoreNotifier.value = value;
   }
 
-  // Game variables
   int life = 3;
   int level = 1;
   double speed = 200;
 
-  // AudioManager instance
   final AudioManager audioManager = AudioManager();
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
 
-    // 🔥 HAPUS FIXED VIEWPORT - biarkan full screen
-    // camera.viewport = FixedResolutionViewport(resolution: Vector2(400, 800));
+    print('Game size: $size');
 
-    print('Game size: $size'); // Cek ukuran layar
-
-    // Add basket di tengah bawah (menggunakan size.x yang sebenarnya)
+    // Add basket di tengah bawah
     basket = Basket();
     basket.position = Vector2(size.x / 2, size.y - 60);
     await add(basket);
@@ -66,9 +59,6 @@ class FruitCatcherGame extends FlameGame
       ),
     );
     await add(scoreText);
-
-    // Play background music
-    audioManager.playBackgroundMusic();
   }
 
   @override
@@ -84,7 +74,6 @@ class FruitCatcherGame extends FlameGame
   }
 
   void spawnFruit() {
-    // Gunakan size.x (lebar layar penuh)
     final x = random.nextDouble() * (size.x - 40) + 20;
     final fruit = Fruit(position: Vector2(x, -30), speed: speed);
     add(fruit);
@@ -107,9 +96,7 @@ class FruitCatcherGame extends FlameGame
     }
 
     scoreText.text = 'Score: $score   ❤️ $life   Lv: $level';
-
     add(FloatingText(text: '+1', position: pos, color: Colors.green));
-
     audioManager.playSfx('collect.mp3');
   }
 
@@ -117,7 +104,6 @@ class FruitCatcherGame extends FlameGame
     life--;
 
     add(FloatingText(text: '-1', position: pos, color: Colors.red));
-
     scoreText.text = 'Score: $score   ❤️ $life   Lv: $level';
 
     if (life <= 0) {
@@ -135,7 +121,10 @@ class FruitCatcherGame extends FlameGame
     if (gameOverNotifier.value) return;
 
     audioManager.playSfx('explosion.mp3');
+
+    // Panggil pause tanpa menunggu (fire-and-forget)
     audioManager.pauseBackgroundMusic();
+
     gameOverNotifier.value = true;
     pauseEngine();
   }
@@ -151,6 +140,7 @@ class FruitCatcherGame extends FlameGame
     scoreNotifier.value = 0;
     gameOverNotifier.value = false;
 
+    // Hapus semua fruit
     children.whereType<Fruit>().forEach((fruit) {
       fruit.removeFromParent();
     });
@@ -159,12 +149,15 @@ class FruitCatcherGame extends FlameGame
     scoreText.text = 'Score: 0   ❤️ 3   Lv: 1';
 
     resumeEngine();
-    audioManager.resumeBackgroundMusic();
+
+    // 🔥 PERBAIKAN: Beri jeda sebelum play musik lagi
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      audioManager.playBackgroundMusic();
+    });
   }
 
   @override
   void onRemove() {
-    audioManager.stopBackgroundMusic();
     audioManager.dispose();
     scoreNotifier.dispose();
     gameOverNotifier.dispose();

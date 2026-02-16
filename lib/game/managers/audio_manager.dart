@@ -9,7 +9,7 @@ class AudioManager {
   // Status flags
   bool _isMusicEnabled = true;
   bool _isSfxEnabled = true;
-  bool _isMusicPlaying = false; // Flag manual untuk tracking status musik
+  bool _isMusicPlaying = false;
 
   // Volume settings
   double _musicVolume = 0.7;
@@ -25,6 +25,8 @@ class AudioManager {
   /// Initialize audio system - preload all audio files
   Future<void> initialize() async {
     try {
+      print('🎵 Initializing audio...');
+
       // Preload all audio files
       await FlameAudio.audioCache.loadAll([
         'music/background_music.mp3',
@@ -32,29 +34,52 @@ class AudioManager {
         'sfx/explosion.mp3',
         'sfx/jump.mp3',
       ]);
+
       print('✅ Audio initialized successfully');
+
+      // Auto play musik setelah initialize (dengan delay)
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (_isMusicEnabled && !_isMusicPlaying) {
+          playBackgroundMusic();
+        }
+      });
     } catch (e) {
       print('❌ Error initializing audio: $e');
     }
   }
 
-  /// Play background music
-  void playBackgroundMusic() {
-    if (_isMusicEnabled) {
-      try {
-        FlameAudio.bgm.play('music/background_music.mp3', volume: _musicVolume);
+  /// Play background music - VERSI AMAN UNTUK WEB
+  Future<void> playBackgroundMusic() async {
+    if (!_isMusicEnabled) {
+      print('🔇 Music disabled, not playing');
+      return;
+    }
+
+    try {
+      // Cek apakah sedang playing
+      if (!_isMusicPlaying) {
+        print('🎵 Attempting to play background music...');
+
+        // Di web, play() mengembalikan Future yang harus ditunggu
+        await FlameAudio.bgm.play(
+          'music/background_music.mp3',
+          volume: _musicVolume,
+        );
         _isMusicPlaying = true;
-        print('🎵 Playing background music');
-      } catch (e) {
-        print('❌ Error playing background music: $e');
+        print('✅ Background music started');
+      } else {
+        print('🎵 Music already playing');
       }
+    } catch (e) {
+      print('❌ Error playing background music: $e');
+      _isMusicPlaying = false;
     }
   }
 
   /// Stop background music
-  void stopBackgroundMusic() {
+  Future<void> stopBackgroundMusic() async {
     try {
-      FlameAudio.bgm.stop();
+      await FlameAudio.bgm.stop();
       _isMusicPlaying = false;
       print('⏹️ Stopped background music');
     } catch (e) {
@@ -62,10 +87,10 @@ class AudioManager {
     }
   }
 
-  /// Pause background music
-  void pauseBackgroundMusic() {
+  /// Pause background music - VERSI AMAN
+  Future<void> pauseBackgroundMusic() async {
     try {
-      FlameAudio.bgm.pause();
+      await FlameAudio.bgm.pause();
       _isMusicPlaying = false;
       print('⏸️ Paused background music');
     } catch (e) {
@@ -73,30 +98,29 @@ class AudioManager {
     }
   }
 
-  /// Resume background music
-  void resumeBackgroundMusic() {
-    if (_isMusicEnabled) {
-      try {
-        FlameAudio.bgm.resume();
-        _isMusicPlaying = true;
-        print('▶️ Resumed background music');
-      } catch (e) {
-        // Jika resume gagal, coba play ulang
-        print('⚠️ Resume failed, trying to play from start: $e');
-        playBackgroundMusic();
-      }
+  /// Resume background music - VERSI AMAN
+  Future<void> resumeBackgroundMusic() async {
+    if (!_isMusicEnabled) return;
+
+    try {
+      await FlameAudio.bgm.resume();
+      _isMusicPlaying = true;
+      print('▶️ Resumed background music');
+    } catch (e) {
+      print('⚠️ Resume failed, trying to play from start: $e');
+      await playBackgroundMusic();
     }
   }
 
   /// Play sound effect
   void playSfx(String fileName) {
-    if (_isSfxEnabled) {
-      try {
-        FlameAudio.play('sfx/$fileName', volume: _sfxVolume);
-        print('🔊 Playing SFX: $fileName');
-      } catch (e) {
-        print('❌ Error playing SFX: $e');
-      }
+    if (!_isSfxEnabled) return;
+
+    try {
+      FlameAudio.play('sfx/$fileName', volume: _sfxVolume);
+      print('🔊 Playing SFX: $fileName');
+    } catch (e) {
+      print('❌ Error playing SFX: $e');
     }
   }
 
@@ -130,21 +154,19 @@ class AudioManager {
     print('🔊 SFX volume set to: $_sfxVolume');
   }
 
-  /// Toggle music on/off
-  void toggleMusic() {
+  /// Toggle music on/off - VERSI AMAN
+  Future<void> toggleMusic() async {
     _isMusicEnabled = !_isMusicEnabled;
+    print('🔊 Music toggled: ${_isMusicEnabled ? "ON" : "OFF"}');
 
     if (_isMusicEnabled) {
-      print('🔊 Music enabled');
-      // Jika musik sedang playing, resume
       if (_isMusicPlaying) {
-        resumeBackgroundMusic();
+        await resumeBackgroundMusic();
       } else {
-        playBackgroundMusic();
+        await playBackgroundMusic();
       }
     } else {
-      print('🔇 Music disabled');
-      pauseBackgroundMusic();
+      await pauseBackgroundMusic();
     }
   }
 
@@ -159,12 +181,7 @@ class AudioManager {
     if (!_isMusicEnabled) {
       _isMusicEnabled = true;
       print('🔊 Music enabled');
-
-      if (_isMusicPlaying) {
-        resumeBackgroundMusic();
-      } else {
-        playBackgroundMusic();
-      }
+      playBackgroundMusic();
     }
   }
 

@@ -6,7 +6,10 @@ import 'game/managers/audio_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize audio - otomatis play musik
   await AudioManager().initialize();
+
   runApp(const MyApp());
 }
 
@@ -36,7 +39,7 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
-    game = FruitCatcherGame(); // ← TANPA PARAMETER
+    game = FruitCatcherGame();
 
     // Listener untuk game over
     game.gameOverNotifier.addListener(_onGameOver);
@@ -44,13 +47,15 @@ class _GameScreenState extends State<GameScreen> {
 
   void _onGameOver() {
     if (game.gameOverNotifier.value) {
-      setState(() {}); // Trigger rebuild untuk show game over
+      setState(() {});
     }
   }
 
   void restartGame() {
-    game.resetGame(); // ← PANGGIL METHOD RESET DARI GAME
-    setState(() {});
+    // Hanya set state, urusan audio sudah di handle di game.resetGame()
+    setState(() {
+      game.resetGame();
+    });
   }
 
   @override
@@ -58,7 +63,8 @@ class _GameScreenState extends State<GameScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          GameWidget(game: game),
+          // Game widget full screen
+          SizedBox.expand(child: GameWidget(game: game)),
 
           // Tombol music & sfx
           Positioned(
@@ -74,10 +80,10 @@ class _GameScreenState extends State<GameScreen> {
                     color: Colors.white,
                     size: 28,
                   ),
-                  onPressed: () {
-                    setState(() {
-                      audioManager.toggleMusic();
-                    });
+                  onPressed: () async {
+                    // Toggle music dengan async/await
+                    await audioManager.toggleMusic();
+                    setState(() {});
                   },
                 ),
                 const SizedBox(width: 8),
@@ -128,7 +134,7 @@ class _GameScreenState extends State<GameScreen> {
             ),
           ),
 
-          // Game Over Overlay - pakai ValueListenableBuilder
+          // Game Over Overlay
           ValueListenableBuilder<bool>(
             valueListenable: game.gameOverNotifier,
             builder: (context, isGameOver, child) {
