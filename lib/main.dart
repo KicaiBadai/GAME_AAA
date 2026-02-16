@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flame/game.dart';
 
-import 'game/fruit.catcher_game.dart';
+import 'game/fruit_catcher_game.dart';
 import 'game/managers/audio_manager.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AudioManager().initialize();
   runApp(const MyApp());
 }
 
@@ -13,7 +15,10 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(title: 'Fruit Catcher Game', home: GameScreen());
+    return const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: GameScreen(),
+    );
   }
 }
 
@@ -25,76 +30,149 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> {
-  final ValueNotifier<int> counter = ValueNotifier(0);
+  late FruitCatcherGame game;
+  final AudioManager audioManager = AudioManager();
 
   @override
   void initState() {
     super.initState();
+    game = FruitCatcherGame(); // ← TANPA PARAMETER
+
+    // Listener untuk game over
+    game.gameOverNotifier.addListener(_onGameOver);
+  }
+
+  void _onGameOver() {
+    if (game.gameOverNotifier.value) {
+      setState(() {}); // Trigger rebuild untuk show game over
+    }
+  }
+
+  void restartGame() {
+    game.resetGame(); // ← PANGGIL METHOD RESET DARI GAME
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
-        // 🔥 UBAH dari Column + Expanded menjadi Stack
         children: [
-          // Score Display (kiri atas)
-          Positioned(
-            top: 50,
-            left: 20,
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: ValueListenableBuilder<int>(
-                valueListenable: counter,
-                builder: (context, score, child) {
-                  return Text(
-                    'Score: $score',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
+          GameWidget(game: game),
 
-          // 🔥 TAMBAHKAN DI SINI - Music & Volume Icons (kanan atas)
+          // Tombol music & sfx
           Positioned(
-            top: 50,
+            top: 40,
             right: 20,
             child: Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.music_note, color: Colors.black),
-                  onPressed: () {},
+                  icon: Icon(
+                    audioManager.isMusicEnabled
+                        ? Icons.music_note
+                        : Icons.music_off,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      audioManager.toggleMusic();
+                    });
+                  },
                 ),
+                const SizedBox(width: 8),
                 IconButton(
-                  icon: const Icon(Icons.volume_up, color: Colors.black),
-                  onPressed: () {},
+                  icon: Icon(
+                    audioManager.isSfxEnabled
+                        ? Icons.volume_up
+                        : Icons.volume_off,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      audioManager.toggleSfx();
+                    });
+                  },
                 ),
               ],
             ),
           ),
 
-          // 🔥 TAMBAHKAN DI SINI - Button (bawah tengah)
+          // Score display
           Positioned(
-            bottom: 50,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: ElevatedButton(
-                onPressed: () {
-                  counter.value++;
-                },
-                child: const Text("Tambah Score"),
-              ),
+            top: 40,
+            left: 20,
+            child: ValueListenableBuilder<int>(
+              valueListenable: game.scoreNotifier,
+              builder: (context, score, child) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'Score: $score',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                );
+              },
             ),
+          ),
+
+          // Game Over Overlay - pakai ValueListenableBuilder
+          ValueListenableBuilder<bool>(
+            valueListenable: game.gameOverNotifier,
+            builder: (context, isGameOver, child) {
+              if (!isGameOver) return const SizedBox.shrink();
+
+              return Container(
+                color: Colors.black54,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'GAME OVER',
+                        style: TextStyle(
+                          fontSize: 48,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Final Score: ${game.score}',
+                        style: const TextStyle(
+                          fontSize: 32,
+                          color: Colors.yellow,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 30),
+                      ElevatedButton(
+                        onPressed: restartGame,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 40,
+                            vertical: 15,
+                          ),
+                        ),
+                        child: const Text('PLAY AGAIN'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -103,7 +181,8 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   void dispose() {
-    counter.dispose();
+    game.gameOverNotifier.removeListener(_onGameOver);
+    game.onRemove();
     super.dispose();
   }
 }
